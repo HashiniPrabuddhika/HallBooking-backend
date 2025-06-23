@@ -51,7 +51,7 @@ Respond in **JSON only**, without explanation.
 
     try {
       const cleaned = llmRaw.replace(/^```json\s*/i, "").replace(/```$/i, "").trim();
-      console.log("🧹 Cleaned JSON to parse:", cleaned);
+      console.log("Cleaned JSON to parse:", cleaned);
 
       let parsed = JSON.parse(cleaned);
 

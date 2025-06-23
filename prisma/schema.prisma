@@ -9,7 +9,7 @@ datasource db {
 
 model mrbsroom {
   id          Int         @id @default(autoincrement())
-  room_name   String      @unique
+  room_name   String      @unique(map: "MRBSRoom_room_name_key")
   description String?
   capacity    Int
   entries     mrbsentry[]
@@ -19,12 +19,13 @@ model mrbsentry {
   id          Int      @id @default(autoincrement())
   start_time  Int
   end_time    Int
-  room_id     Int      
+  roomId      Int
   created_by  String
   modified_by String
   name        String
   description String?
-  room        mrbsroom @relation(fields: [room_id], references: [id])
+  room_id     Int?
+  room        mrbsroom @relation(fields: [roomId], references: [id], map: "MRBSEntry_roomId_fkey")
 
-  @@index([room_id])
+  @@index([roomId], map: "MRBSEntry_roomId_fkey")
 }

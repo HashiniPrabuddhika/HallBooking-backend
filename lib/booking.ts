@@ -36,7 +36,7 @@ export async function checkAvailability({ room_name, date, start_time, end_time 
 
     const conflict = await prisma.mrbsentry.findFirst({
       where: {
-        room_id: room.id,  
+        roomId: room.id,
         start_time: { lt: end_ts },
         end_time: { gt: start_ts },
       },
@@ -74,7 +74,6 @@ export async function addBooking({ room_name, date, start_time, end_time, create
     console.log("Room found:", room);
     console.log("Room ID type and value:", typeof room.id, room.id);
 
-
     if (!room.id || typeof room.id !== "number") {
       console.error("Invalid room ID:", room.id);
       throw new Error(`Invalid room ID for room '${room_name}'`);
@@ -87,7 +86,7 @@ export async function addBooking({ room_name, date, start_time, end_time, create
 
     const conflict = await prisma.mrbsentry.findFirst({
       where: {
-        room_id: room.id, 
+        roomId: room.id,
         start_time: { lt: end_ts },
         end_time: { gt: start_ts },
       },
@@ -102,7 +101,7 @@ export async function addBooking({ room_name, date, start_time, end_time, create
 
     const booking = await prisma.mrbsentry.create({
       data: {
-        room_id: room.id,
+        roomId: room.id,
         start_time: start_ts,
         end_time: end_ts,
         created_by: created_by,
