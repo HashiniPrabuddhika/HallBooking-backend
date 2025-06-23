@@ -21,14 +21,13 @@ export async function callDeepSeek(prompt: string): Promise<string> {
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error("❌ DeepSeek API Error:", response.status, errorText);
+    console.error("DeepSeek API Error:", response.status, errorText);
     throw new Error(`DeepSeek API error: ${response.statusText}`);
   }
 
   const data = await response.json();
-  console.log("🔁 DeepSeek raw response:", JSON.stringify(data, null, 2));
+  console.log("DeepSeek raw response:", JSON.stringify(data, null, 2));
 
-  // Check if choices and message exist
   if (!data.choices || !data.choices[0]?.message?.content) {
     throw new Error("Invalid response structure from DeepSeek");
   }
