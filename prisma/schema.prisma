@@ -16,16 +16,18 @@ model mrbsroom {
 }
 
 model mrbsentry {
-  id          Int      @id @default(autoincrement())
-  start_time  Int
-  end_time    Int
-  roomId      Int
-  created_by  String
-  modified_by String
-  name        String
-  description String?
-  room_id     Int?
-  room        mrbsroom @relation(fields: [roomId], references: [id], map: "MRBSEntry_roomId_fkey")
+  id           Int      @id @default(autoincrement())
+  roomId       Int
+  name         String
+  booking_date String
+  start_time   String
+  end_time     String
+  description  String?
+  created_by   String
+  modified_by  String
+  room         mrbsroom @relation(fields: [roomId], references: [id], map: "MRBSEntry_roomId_fkey")
 
   @@index([roomId], map: "MRBSEntry_roomId_fkey")
+  @@index([booking_date])
+  @@index([start_time])
 }

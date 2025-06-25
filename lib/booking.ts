@@ -10,8 +10,22 @@ interface BookingParams {
   created_by?: string;
 }
 
-function toUnix(date: string, time: string): number {
-  return Math.floor(new Date(`${date}T${time}:00`).getTime() / 1000);
+function formatTime(time: string): string {
+  return time.length === 4 ? `0${time}` : time;
+}
+
+function timeToMinutes(time: string): number {
+  const [hours, minutes] = time.split(':').map(Number);
+  return hours * 60 + minutes;
+}
+
+function isTimeOverlap(start1: string, end1: string, start2: string, end2: string): boolean {
+  const start1Minutes = timeToMinutes(start1);
+  const end1Minutes = timeToMinutes(end1);
+  const start2Minutes = timeToMinutes(start2);
+  const end2Minutes = timeToMinutes(end2);
+  
+  return start1Minutes < end2Minutes && end1Minutes > start2Minutes;
 }
 
 export async function checkAvailability({ room_name, date, start_time, end_time }: BookingParams) {
@@ -29,22 +43,47 @@ export async function checkAvailability({ room_name, date, start_time, end_time 
 
     console.log("Room found:", room);
 
-    const start_ts = toUnix(date, start_time);
-    const end_ts = toUnix(date, end_time);
+    const formattedStartTime = formatTime(start_time);
+    const formattedEndTime = formatTime(end_time);
 
-    console.log("Time range:", { start_ts, end_ts, date, start_time, end_time });
+    console.log("Time range:", { date, start_time: formattedStartTime, end_time: formattedEndTime });
 
-    const conflict = await prisma.mrbsentry.findFirst({
+    const existingBookings = await prisma.mrbsentry.findMany({
       where: {
         roomId: room.id,
-        start_time: { lt: end_ts },
-        end_time: { gt: start_ts },
+        booking_date: date
       },
+      select: {
+        id: true,
+        name: true,
+        start_time: true,
+        end_time: true,
+        created_by: true
+      }
     });
 
+    const conflict = existingBookings.find(booking => 
+      isTimeOverlap(booking.start_time, booking.end_time, formattedStartTime, formattedEndTime)
+    );
+
     if (conflict) {
-      console.log("❌ Conflict found:", conflict);
-      return { available: false, message: "Room is NOT available at that time." };
+      console.log("❌ Conflict found:", {
+        booking_id: conflict.id,
+        booking_name: conflict.name,
+        conflict_time: `${conflict.start_time} - ${conflict.end_time}`,
+        created_by: conflict.created_by
+      });
+      return { 
+        available: false, 
+        message: `Room is NOT available at that time. Conflicting booking: "${conflict.name}" from ${conflict.start_time} to ${conflict.end_time}`,
+        conflict_details: {
+          booking_id: conflict.id,
+          booking_name: conflict.name,
+          start_time: conflict.start_time,
+          end_time: conflict.end_time,
+          created_by: conflict.created_by
+        }
+      };
     }
 
     return { available: true, message: "Room is available." };
@@ -79,22 +118,19 @@ export async function addBooking({ room_name, date, start_time, end_time, create
       throw new Error(`Invalid room ID for room '${room_name}'`);
     }
 
-    const start_ts = toUnix(date, start_time);
-    const end_ts = toUnix(date, end_time);
+    const formattedStartTime = formatTime(start_time);
+    const formattedEndTime = formatTime(end_time);
 
-    console.log("Booking time range:", { start_ts, end_ts, date, start_time, end_time });
+    if (timeToMinutes(formattedStartTime) >= timeToMinutes(formattedEndTime)) {
+      throw new Error("Start time must be before end time");
+    }
 
-    const conflict = await prisma.mrbsentry.findFirst({
-      where: {
-        roomId: room.id,
-        start_time: { lt: end_ts },
-        end_time: { gt: start_ts },
-      },
-    });
+    console.log("Booking time range:", { date, start_time: formattedStartTime, end_time: formattedEndTime });
 
-    if (conflict) {
-      console.log("Time slot conflict:", conflict);
-      throw new Error("Time slot is already booked");
+    const availability = await checkAvailability({ room_name, date, start_time, end_time, created_by });
+    
+    if (!availability.available) {
+      throw new Error(availability.message);
     }
 
     console.log("About to create booking with room.id:", room.id, "type:", typeof room.id);
@@ -102,11 +138,12 @@ export async function addBooking({ room_name, date, start_time, end_time, create
     const booking = await prisma.mrbsentry.create({
       data: {
         roomId: room.id,
-        start_time: start_ts,
-        end_time: end_ts,
+        name: `${room_name}`,
+        booking_date: date,
+        start_time: formattedStartTime,  
+        end_time: formattedEndTime,     
         created_by: created_by,
         modified_by: created_by,
-        name: `Booking for ${room_name}`,
         description: `Booked by ${created_by}`,
       },
     });
@@ -120,13 +157,59 @@ export async function addBooking({ room_name, date, start_time, end_time, create
       booking_details: {
         room_name,
         date,
-        start_time,
-        end_time,
+        start_time: formattedStartTime,
+        end_time: formattedEndTime,
         created_by
       }
     };
   } catch (error) {
     console.error("Error creating booking:", error);
     throw error;
+  }
+}
+
+export async function getRoomBookings(room_name: string, date: string) {
+  try {
+    const room = await prisma.mrbsroom.findUnique({ 
+      where: { room_name } 
+    });
+
+    if (!room) {
+      return { error: "Room not found" };
+    }
+
+    const bookings = await prisma.mrbsentry.findMany({
+      where: {
+        roomId: room.id,
+        booking_date: date
+      },
+      orderBy: {
+        start_time: 'asc'  
+      },
+      select: {
+        id: true,
+        name: true,
+        start_time: true,
+        end_time: true,
+        description: true,
+        created_by: true,
+      }
+    });
+
+    const formattedBookings = bookings.map(booking => ({
+      ...booking,
+      readable_time: `${booking.start_time} - ${booking.end_time}`,  
+      readable_date: date
+    }));
+
+    return {
+      room_name,
+      date,
+      bookings: formattedBookings,
+      total_bookings: bookings.length
+    };
+  } catch (error) {
+    console.error("Error fetching bookings:", error);
+    return { error: "Error fetching bookings" };
   }
 }
