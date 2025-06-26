@@ -8,26 +8,72 @@ datasource db {
 }
 
 model mrbsroom {
-  id          Int         @id @default(autoincrement())
-  room_name   String      @unique(map: "MRBSRoom_room_name_key")
-  description String?
-  capacity    Int
-  entries     mrbsentry[]
+  id               Int         @id @default(autoincrement())
+  disabled         Boolean     @default(false)
+  area_id          Int         @default(0)
+  room_name        String      @unique(map: "MRBSRoom_room_name_key")
+  sort_key         String      @default("")
+  description      String?
+  capacity         Int         @default(0)
+  room_admin_email String?
+  custom_html      String?
+  entries          mrbsentry[]
+
+  @@map("mrbsroom")
+}
+
+model mrbsrepeat {
+  id            Int         @id @default(autoincrement())
+  start_time    Int         @default(0)
+  end_time      Int         @default(0)
+  entry_type    Int         @default(0)
+  timestamp     DateTime
+  create_by     String      @default("")
+  modified_by   String      @default("")
+  name          String      @default("")
+  type          String      @default("E")
+  description   String?
+  status        Int         @default(0)
+  reminded      Int?
+  info_time     Int?
+  info_user     String?
+  info_text     String?
+  ical_uid      String      @default("")
+  ical_sequence Int         @default(0)
+  ical_recur_id String?
+  entries       mrbsentry[]
+
+  @@map("mrbsrepeat")
 }
 
 model mrbsentry {
-  id           Int      @id @default(autoincrement())
-  roomId       Int
-  name         String
-  booking_date String
-  start_time   String
-  end_time     String
-  description  String?
-  created_by   String
-  modified_by  String
-  room         mrbsroom @relation(fields: [roomId], references: [id], map: "MRBSEntry_roomId_fkey")
+  id            Int         @id @default(autoincrement())
+  roomId        Int         @map("room_id")
+  name          String
+  booking_date  String
+  start_time    Int         @default(0)
+  end_time      Int         @default(0)
+  entry_type    Int         @default(0)
+  type          String      @default("E")
+  status        Int         @default(0)
+  repeatId      Int?
+  description   String?
+  created_by    String      @default("")
+  modified_by   String      @default("")
+  timestamp     DateTime    @default(now()) @db.Timestamp(0)
+  reminded      Int?
+  info_time     Int?
+  info_user     String?
+  info_text     String?
+  ical_uid      String      @default("")
+  ical_sequence Int         @default(0)
+  ical_recur_id String?
+  repeat        mrbsrepeat? @relation(fields: [repeatId], references: [id], map: "MRBSEntry_repeatId_fkey")
+  room          mrbsroom    @relation(fields: [roomId], references: [id], map: "MRBSEntry_roomId_fkey")
 
   @@index([roomId], map: "MRBSEntry_roomId_fkey")
+  @@index([repeatId], map: "MRBSEntry_repeatId_fkey")
   @@index([booking_date])
   @@index([start_time])
+  @@map("mrbsentry")
 }
